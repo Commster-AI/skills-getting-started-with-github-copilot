@@ -11,13 +11,18 @@ from fastapi.responses import RedirectResponse
 import os
 from pathlib import Path
 
-app = FastAPI(title="Mergington High School API",
-              description="API for viewing and signing up for extracurricular activities")
+app = FastAPI(
+    title="Mergington High School API",
+    description="API for viewing and signing up for extracurricular activities"
+)
 
 # Mount the static files directory
 current_dir = Path(__file__).parent
-app.mount("/static", StaticFiles(directory=os.path.join(Path(__file__).parent,
-          "static")), name="static")
+app.mount(
+    "/static",
+    StaticFiles(directory=os.path.join(Path(__file__).parent, "static")),
+    name="static"
+)
 
 # In-memory activity database
 activities = {
@@ -88,6 +93,16 @@ def get_activities():
     return activities
 
 
+@app.get("/activities/{activity_name}/spots")
+def get_remaining_spots(activity_name: str):
+    """Check how many spots are left in an activity."""
+    if activity_name not in activities:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    activity = activities[activity_name]
+    remaining = activity["max_participants"] - len(activity["participants"])
+    return {"activity": activity_name, "remaining_spots": remaining}
+
+
 @app.post("/activities/{activity_name}/signup")
 def signup_for_activity(activity_name: str, email: str):
     """Sign up a student for an activity"""
@@ -98,6 +113,9 @@ def signup_for_activity(activity_name: str, email: str):
 
     if email in activity["participants"]:
         raise HTTPException(status_code=400, detail="Student already signed up for this activity")
+
+    if len(activity["participants"]) >= activity["max_participants"]:
+        raise HTTPException(status_code=400, detail="Activity is full. No spots left.")
 
     activity["participants"].append(email)
     return {"message": f"Signed up {email} for {activity_name}"}
